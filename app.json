@@ -1,24 +1,70 @@
 {
   "expo": {
-    "name": "tiket",
-    "slug": "tiket",
+    "name": "Karcis Wetan",
+    "slug": "karcis-wetan",
+    "scheme": "karciswetan",
     "version": "1.0.0",
+    "description": "Demo aplikasi tiket acara buatan PintuWeb: beli tiket, e-tiket QR, alihkan ke teman, dan check-in panitia.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#15121f",
+    "primaryColor": "#ff6a2b",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "id.pintuweb.demo.tiket",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Kamera dipakai panitia untuk memindai QR tiket di gerbang. Kamu tetap bisa memasukkan kode secara manual."
+      }
     },
     "android": {
+      "package": "id.pintuweb.demo.tiket",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#15121f",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "output": "static",
+      "favicon": "./assets/favicon.png",
+      "name": "Karcis Wetan",
+      "shortName": "Karcis",
+      "lang": "id",
+      "themeColor": "#15121f",
+      "backgroundColor": "#15121f"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://app-tiket.pintuweb.id",
+          "sitemap": false
+        }
+      ],
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kamera dipakai panitia untuk memindai QR tiket di gerbang. Kamu tetap bisa memasukkan kode secara manual.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#15121f"
+        }
+      ]
+    ]
   }
 }

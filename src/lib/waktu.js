@@ -23,6 +23,10 @@ export function padaWIB(sekarang, ofsetHari, jam, menit = 0) {
   return awalHari(sekarang) + ofsetHari * HARI + jam * JAM + menit * MENIT;
 }
 
+/** 0 = Minggu … 6 = Sabtu (WIB). */
+export const hariKe = (ts) => d(ts).getUTCDay();
+export const tanggalKe = (ts) => d(ts).getUTCDate();
+export const fmtBulanTahun = (ts) => { const x = d(ts); return `${BULAN[x.getUTCMonth()]} ${x.getUTCFullYear()}`; };
 export const fmtJam = (ts) => { const x = d(ts); return `${dua(x.getUTCHours())}.${dua(x.getUTCMinutes())}`; };
 export const fmtHari = (ts) => HARI_NAMA[d(ts).getUTCDay()];
 export const fmtHariPendek = (ts) => HARI_PENDEK[d(ts).getUTCDay()];

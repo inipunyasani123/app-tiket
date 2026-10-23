@@ -2,10 +2,10 @@ import { useCallback, useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MEREK, cariAcara, cariTiketKat, jadwal, statusAcara } from '../src/data/acara';
+import { MEREK, cariAcara, cariTiketKat, jadwal, mulaiAcuan, statusAcara } from '../src/data/acara';
 import { H, TINTA, W } from '../src/lib/tema';
 import { meta } from '../src/lib/meta';
-import { JAM, fmtJam, fmtRentang, fmtStempel, fmtTglPanjang, hitungMundur, useSekarang } from '../src/lib/waktu';
+import { JAM, MENIT, fmtJam, fmtRentang, fmtStempel, fmtTglPanjang, hitungMundur, useSekarang } from '../src/lib/waktu';
 import { isiQR, rapikan } from '../src/lib/kode';
 import { useData } from '../src/lib/simpan';
 import { BilahAtas } from '../src/ui/Layar';
@@ -17,6 +17,9 @@ import { Ikon } from '../src/ui/Ikon';
 import { Lembar } from '../src/ui/Lembar';
 import { OPSI_PENGINGAT, fmtPengingat } from '../src/ui/Pengingat';
 import { jamMulai, labelHari } from '../src/ui/KartuAcara';
+import { Kosong } from '../src/ui/Kosong';
+import { Cincin } from '../src/ui/Cincin';
+import { unduhIcs } from '../src/lib/kalender';
 
 export function generateMetadata() {
   return meta({ judul: 'E-tiket | Karcis Wetan', deskripsi: 'E-tiket dengan QR unik di demo aplikasi Karcis Wetan: simpan ke dompet, alihkan ke teman, dan atur pengingat acara.', jalur: '/e-tiket', noindex: true });
@@ -31,7 +34,7 @@ export default function ETiket() {
 
   let isi;
   if (!data.dimuat) isi = <View style={s.memuat}><Mono>Memuat e-tiket…</Mono></View>;
-  else if (tiket) isi = <Karcis tiket={tiket} />;
+  else if (tiket) isi = <Karcis tiket={tiket} bukaAlih={p.alih === '1'} />;
   else isi = <Kiriman params={p} />;
 
   return (
@@ -53,8 +56,7 @@ function Kiriman({ params }) {
     return (
       <View style={s.kosong}>
         <Judul level={1} ukuran={34}>E-tiket tidak ditemukan</Judul>
-        <T warna={W.redup}>Tiket ini tidak tersimpan di perangkat ini. Di demo, e-tiket hanya tersimpan di HP atau peramban tempat tiket dibeli.</T>
-        <TombolTautan href="/tiket" replace label="Ke Tiketku" />
+        <Kosong judul="Karcis tidak ada di sini" isi="Di demo ini e-tiket hanya tersimpan di HP atau peramban tempat tiket dibeli. Buka Tiketku untuk melihat tiket di perangkat ini." aksi="Ke Tiketku" href="/tiket" kata="KOSONG" />
       </View>
     );
   }
@@ -79,10 +81,10 @@ function Kiriman({ params }) {
   );
 }
 
-function Karcis({ tiket }) {
+function Karcis({ tiket, bukaAlih }) {
   const data = useData();
   const inset = useSafeAreaInsets();
-  const sekarang = useSekarang();
+  const sekarang = useSekarang(true);
   const acara = cariAcara(tiket.acara);
   const kat = cariTiketKat(acara, tiket.kategori);
   const tinta = TINTA[acara.tinta];
@@ -92,8 +94,11 @@ function Karcis({ tiket }) {
   const dialihkan = tiket.status === 'dialihkan';
   const batasAlih = j ? (acara.harian ? j.selesai : j.mulai) - 2 * JAM : null;
   const bisaAlih = !dialihkan && !masuk && st !== 'selesai' && (batasAlih == null || sekarang < batasAlih);
-  const [lembar, setLembar] = useState(null);
+  const [lembar, setLembar] = useState(bukaAlih ? 'alih' : null);
   const [pesan, setPesan] = useState('');
+  const menit = sekarang != null ? Math.floor(sekarang / MENIT) : null;
+  const detik = sekarang != null ? 60 - Math.floor((sekarang % MENIT) / 1000) : 60;
+  const gerbang = acara.gerbang?.[tiket.kategori] || 'A';
   const tutup = useCallback(() => setLembar(null), []);
 
   const kabari = (t) => { setPesan(t); setTimeout(() => setPesan(''), 2600); };
@@ -103,18 +108,8 @@ function Karcis({ tiket }) {
   };
 
   const unduhKalender = () => {
-    if (!j) return;
-    const z = (ts) => new Date(ts).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-    const ics = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Karcis Wetan//Demo PintuWeb//ID', 'BEGIN:VEVENT',
-      `UID:${tiket.kode}@app-tiket.pintuweb.id`, `DTSTAMP:${z(Date.now())}`, `DTSTART:${z(j.mulai)}`, `DTEND:${z(acara.harian ? j.mulai + (acara.harian[2] - acara.harian[0]) * JAM : j.selesai)}`,
-      `SUMMARY:${acara.judul} (demo)`, `LOCATION:${acara.tempat}`, `DESCRIPTION:Kode tiket ${tiket.kode} · ${kat.nama}. Acara rekaan dari demo Karcis Wetan.`,
-      'BEGIN:VALARM', 'TRIGGER:-PT3H', 'ACTION:DISPLAY', `DESCRIPTION:${acara.judul} mulai 3 jam lagi`, 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR',
-    ].join('\r\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
-    a.download = `karcis-wetan-${acara.slug}.ics`;
-    document.body.appendChild(a); a.click(); a.remove();
+    if (sekarang == null) return;
+    unduhIcs(acara, [tiket], sekarang);
     kabari('File kalender (.ics) diunduh');
   };
 
@@ -131,7 +126,7 @@ function Karcis({ tiket }) {
           <View style={[s.pita, { backgroundColor: tinta.a }]}>
             <View style={s.pitaPoster}><Poster acara={acara} hias /></View>
             <View style={{ flex: 1, gap: 4 }}>
-              <Mono warna={W.tinta} ukuran={10.5}>E-tiket · {MEREK.nama}</Mono>
+              <Mono warna={W.tinta}>E-tiket · {MEREK.nama}</Mono>
               <Judul level={1} ukuran={30} warna={W.tinta}>{acara.judul}</Judul>
             </View>
           </View>
@@ -139,8 +134,9 @@ function Karcis({ tiket }) {
             <Sel label="Tanggal" isi={waktuTeks} lebar />
             <Sel label="Jam (WIB)" isi={acara.harian ? `${String(acara.harian[0]).padStart(2, '0')}.00–${acara.harian[2]}.00` : `${jamMulai(acara).replace(' WIB', '')}`} />
             <Sel label="Pintu" isi={j ? fmtJam(j.pintu) : `${String(acara.pintu[1]).padStart(2, '0')}.${String(acara.pintu[2]).padStart(2, '0')}`} />
-            <Sel label="Kota" isi={acara.kota} />
-            <Sel label="Kategori" isi={kat.nama} lebar />
+            <Sel label="Gerbang saran" isi={gerbang} />
+            <Sel label="Kategori" isi={kat.nama} setengah />
+            <Sel label="Kota" isi={acara.kota} setengah />
             <Sel label="Pemegang" isi={tiket.pemegang} lebar />
           </View>
           <Takik latar={W.malam} ukuran={28} />
@@ -152,23 +148,28 @@ function Karcis({ tiket }) {
               </View>
             ) : (
               <View>
-                <QR isi={isiQR(tiket.kode)} ukuran={208} label={`QR e-tiket ${tiket.kode}`} />
-                {masuk ? <View style={[s.cap, { borderColor: W.hijauTua }]}><Text style={[s.capTeks, { color: W.hijauTua }]}>Sudah masuk</Text><Text style={[s.capKecil, { color: W.hijauTua }]}>{fmtStempel(masuk.waktu)} · Gerbang {masuk.gerbang}</Text></View> : null}
+                <View style={masuk ? { opacity: 0.22 } : null}>
+                  <QR isi={masuk || menit == null ? isiQR(tiket.kode) : `${isiQR(tiket.kode)}:${menit}`} ukuran={208} label={masuk ? 'QR sudah dipakai' : `QR e-tiket ${tiket.kode}, diperbarui tiap menit`} />
+                </View>
+                {masuk ? <View style={[s.cap, { borderColor: W.hijauTua }]}><Text style={[s.capTeks, { color: W.hijauTua }]}>Sudah dipakai</Text><Text style={[s.capKecil, { color: W.hijauTua }]}>Masuk {fmtStempel(masuk.waktu)} · Gerbang {masuk.gerbang}</Text></View> : null}
               </View>
             )}
+            {!dialihkan && !masuk ? (
+              <View style={s.segar}>
+                <Cincin sisa={detik} kuota={60} ukuran={28} warna={tinta.teks} />
+                <Text style={s.segarTeks}>QR diperbarui tiap menit · {detik} dtk</Text>
+              </View>
+            ) : null}
             <Text style={[s.kode, dialihkan && { textDecorationLine: 'line-through', color: W.tinta2 }]} selectable>{tiket.kode}</Text>
             <T ukuran={13} warna={W.tinta2} style={{ textAlign: 'center' }}>
               {dialihkan ? `Kode ini hangus sejak ${fmtStempel(tiket.dialihkanKe.waktu)}. Pemegang baru: ${tiket.dialihkanKe.nama}.`
                 : masuk ? 'Tiket sudah dipakai masuk. Kode yang sama akan ditolak di gerbang.'
-                  : 'Tunjukkan QR ini ke panitia. Satu kode untuk satu kali masuk. Naikkan kecerahan layar saat dipindai.'}
+                  : `Tunjukkan QR ini di Gerbang ${gerbang}. Tangkapan layar tidak berlaku di gerbang (simulasi). Naikkan kecerahan layar saat dipindai.`}
             </T>
           </View>
-          <View style={s.kaki}>
-            <Text style={s.seri}>No. {seri(tiket.kode)}</Text>
-            <View style={s.hologram} aria-hidden>{[W.pink, W.kuning, W.biru, W.hijau, W.jingga].map((c) => <View key={c} style={[s.holoStrip, { backgroundColor: c }]} />)}</View>
-            {tiket.contoh ? <Text style={s.seri}>Tiket contoh</Text> : null}
-          </View>
+          {masuk ? null : <Kaki tiket={tiket} />}
         </View>
+        {masuk ? <Kaki tiket={tiket} sobek /> : null}
 
         {pesan ? <View style={s.kabar} role="status"><Text style={s.kabarTeks}>{pesan}</Text></View> : <View role="status" />}
 
@@ -210,11 +211,21 @@ function Karcis({ tiket }) {
   );
 }
 
+function Kaki({ tiket, sobek }) {
+  return (
+    <View style={[s.kaki, sobek && s.kakiSobek]}>
+      <Text style={s.seri}>{sobek ? 'Sobekan · ' : ''}No. {seri(tiket.kode)}</Text>
+      <View style={s.hologram} aria-hidden>{[W.pink, W.kuning, W.biru, W.hijau, W.jingga].map((c) => <View key={c} style={[s.holoStrip, { backgroundColor: c }]} />)}</View>
+      {tiket.contoh ? <Text style={s.seri}>Tiket contoh</Text> : null}
+    </View>
+  );
+}
+
 const seri = (k) => { let h = 7; for (const c of k) h = (h * 31 + c.charCodeAt(0)) % 999983; return String(h % 1e6).padStart(6, '0'); };
 
-function Sel({ label, isi, lebar }) {
+function Sel({ label, isi, lebar, setengah }) {
   return (
-    <View style={[s.sel, lebar && { flexBasis: '100%' }]}>
+    <View style={[s.sel, lebar && { flexBasis: '100%' }, setengah && { flexBasis: '50%' }]}>
       <Text style={s.selLabel}>{label}</Text>
       <Text style={s.selIsi}>{isi}</Text>
     </View>
@@ -263,7 +274,7 @@ function FormAlih({ tiket, selesai }) {
 
 function AturPengingat({ tiket, acara, sekarang }) {
   const data = useData();
-  const j = sekarang != null ? jadwal(acara, sekarang) : null;
+  const acuan = sekarang != null ? mulaiAcuan(acara, sekarang) : null;
   const ubah = (id) => {
     const ada = tiket.pengingat || [];
     data.ubahTiket(tiket.kode, { pengingat: ada.includes(id) ? ada.filter((x) => x !== id) : [...ada, id] });
@@ -272,7 +283,7 @@ function AturPengingat({ tiket, acara, sekarang }) {
     <>
       <T ukuran={14} warna={W.tinta2}>Pengingat muncul sebagai banner di aplikasi saat waktunya tiba. Semua waktu dalam WIB.</T>
       {OPSI_PENGINGAT.map((o) => {
-        const waktu = j ? o.waktu(j.mulai) : null;
+        const waktu = acuan != null ? o.waktu(acuan) : null;
         const lewat = waktu != null && waktu <= sekarang;
         const nyala = (tiket.pengingat || []).includes(o.id);
         return (
@@ -303,16 +314,19 @@ const s = StyleSheet.create({
   pitaPoster: { width: 64, transform: [{ rotate: '-4deg' }], backgroundColor: W.kertas },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, rowGap: 12 },
   sel: { flexBasis: '33.33%', paddingRight: 8 },
-  selLabel: { fontFamily: H.mono, fontSize: 10.5, color: W.tinta2, textTransform: 'uppercase', letterSpacing: 0.6 },
+  selLabel: { fontFamily: H.mono, fontSize: 12, color: W.tinta2, textTransform: 'uppercase', letterSpacing: 0.6 },
   selIsi: { fontFamily: H.tebal, fontSize: 15, lineHeight: 20, color: W.tinta, marginTop: 2 },
   qrArea: { alignItems: 'center', padding: 18, gap: 10 },
   qrMati: { position: 'relative' },
   cap: { position: 'absolute', top: '34%', left: -10, right: -10, borderWidth: 4, borderRadius: 12, backgroundColor: 'rgba(244,236,220,0.92)', paddingVertical: 6, alignItems: 'center', transform: [{ rotate: '-9deg' }] },
   capTeks: { fontFamily: H.display, fontSize: 34, lineHeight: 36, textTransform: 'uppercase', letterSpacing: 1.5 },
-  capKecil: { fontFamily: H.mono, fontSize: 11 },
+  capKecil: { fontFamily: H.mono, fontSize: 12 },
   kode: { fontFamily: H.mono, fontSize: 22, color: W.tinta, letterSpacing: 2 },
+  segar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  segarTeks: { fontFamily: H.mono, fontSize: 12, color: W.tinta2, fontVariant: ['tabular-nums'] },
+  kakiSobek: { borderRadius: 14, marginTop: -6, transform: [{ rotate: '-2deg' }], borderTopWidth: 2, borderStyle: 'dashed', borderColor: W.tinta2 },
   kaki: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: W.kertas2, paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  seri: { fontFamily: H.mono, fontSize: 11, color: W.tinta2, textTransform: 'uppercase' },
+  seri: { fontFamily: H.mono, fontSize: 12, color: W.tinta2, textTransform: 'uppercase' },
   hologram: { flexDirection: 'row', height: 14, width: 80, borderRadius: 4, overflow: 'hidden' },
   holoStrip: { flex: 1 },
   kabar: { backgroundColor: W.hijau, borderRadius: 12, padding: 12 },
@@ -321,7 +335,7 @@ const s = StyleSheet.create({
   tAksi: { flexGrow: 1, flexBasis: '45%', minHeight: 64, borderRadius: 16, borderWidth: 1.5, borderColor: W.garis, backgroundColor: W.malam2, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   tAksiTeks: { fontFamily: H.tebal, fontSize: 14.5, color: W.terang, flexShrink: 1 },
   panelAlih: { backgroundColor: W.malam2, borderRadius: 16, padding: 14, gap: 10, borderWidth: 1.5, borderColor: W.garis },
-  tautan: { fontFamily: H.mono, fontSize: 11.5, color: W.terang, backgroundColor: W.malam3, padding: 10, borderRadius: 10 },
+  tautan: { fontFamily: H.mono, fontSize: 12, color: W.terang, backgroundColor: W.malam3, padding: 10, borderRadius: 10 },
   labelGelap: { fontFamily: H.tebal, fontSize: 15, color: W.tinta },
   inputGelap: { minHeight: 50, borderRadius: 12, borderWidth: 2, borderColor: W.tinta2, backgroundColor: '#fffaf0', color: W.tinta, paddingHorizontal: 14, fontFamily: H.badan, fontSize: 16 },
   galatGelap: { fontFamily: H.tebal, fontSize: 13.5, color: W.merahTua },

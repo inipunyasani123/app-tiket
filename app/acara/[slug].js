@@ -1,11 +1,12 @@
-import { useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ACARA, bukaBerikut, cariAcara, hargaMulai, jadwal, jendela, rupiah, statusAcara } from '../../src/data/acara';
+import { ACARA, MEREK, bukaBerikut, cariAcara, hargaMulai, jadwal, jendela, labelHari, rupiah, rupiahRingkas, statusAcara } from '../../src/data/acara';
 import { H, TINTA, W } from '../../src/lib/tema';
 import { meta } from '../../src/lib/meta';
-import { fmtJam, fmtRentang, fmtTglPanjang, hitungMundur, useSekarang } from '../../src/lib/waktu';
+import { fmtJam, fmtTglAngka, fmtTglPanjang, hitungMundur, useSekarang } from '../../src/lib/waktu';
+import { ribuan } from '../../src/lib/angka';
 import { terjual, useData } from '../../src/lib/simpan';
 import { BilahAtas } from '../../src/ui/Layar';
 import { Judul, Mono, T, Tombol, TombolTautan } from '../../src/ui/dasar';
@@ -13,7 +14,10 @@ import { Poster, Raster } from '../../src/ui/Poster';
 import { Tokoh } from '../../src/ui/Tokoh';
 import { Takik } from '../../src/ui/Karcis';
 import { Ikon } from '../../src/ui/Ikon';
-import { jamMulai, labelHari } from '../../src/ui/KartuAcara';
+import { jamMulai } from '../../src/ui/KartuAcara';
+import { Denah, adaDenah } from '../../src/ui/Denah';
+import { Peta } from '../../src/ui/Peta';
+import { Cincin } from '../../src/ui/Cincin';
 import { HalamanTakAda } from '../../src/ui/TakAda';
 import { Foto } from '../../src/ui/Foto';
 
@@ -45,141 +49,217 @@ function Isi({ acara }) {
   const sekarang = useSekarang();
   const data = useData();
   const gulir = useRef(null);
-  const posTiket = useRef(0);
+  const posWadah = useRef(0);
+  const pos = useRef({});
+  const [aktif, setAktif] = useState('tentang');
+  const [kabar, setKabar] = useState('');
   const tinta = TINTA[acara.tinta];
   const j = sekarang != null ? jadwal(acara, sekarang) : null;
   const st = sekarang != null ? statusAcara(acara, sekarang) : null;
   const selesai = st === 'selesai';
   const semuaHabis = acara.tiket.every((k) => terjual(data, acara.slug, k.id) >= k.kuota);
+  const disimpan = !!data.disimpan?.includes(acara.slug);
 
   let hitung = `${labelHari(acara)}, ${jamMulai(acara)}`;
   if (j && st === 'akan') hitung = `Mulai dalam ${hitungMundur(j.mulai - sekarang)}`;
   if (j && st === 'berlangsung') hitung = acara.harian ? `Sedang buka, tutup ${fmtJam(jendela(acara, sekarang).find(([a, b]) => sekarang >= a && sekarang < b)[1])} WIB` : 'Sedang berlangsung';
-  if (j && st === 'jeda') hitung = `Buka lagi ${fmtJam(bukaBerikut(acara, sekarang))} WIB`;
+  if (j && st === 'jeda') hitung = `Tutup sementara, buka lagi ${fmtJam(bukaBerikut(acara, sekarang))} WIB`;
   if (selesai) hitung = 'Acara sudah selesai';
 
   const multiHari = acara.selesai[0] !== acara.mulai[0];
   let hariSebelum = null;
+  const BAGIAN = [['tentang', 'Tentang'], ['susunan', 'Susunan'], ['pengisi', LABEL_PENGISI[acara.kategori]], ['tiket', 'Tiket'], ['lokasi', 'Lokasi']];
+
+  const umumkan = (t) => { setKabar(t); setTimeout(() => setKabar(''), 2600); };
+  const ke = (id) => { setAktif(id); gulir.current?.scrollTo({ y: posWadah.current + (pos.current[id] || 0) - 56, animated: true }); };
+  const saatGulir = (e) => {
+    const y = e.nativeEvent.contentOffset.y + 72;
+    let kini = 'tentang';
+    for (const [id] of BAGIAN) if (pos.current[id] != null && posWadah.current + pos.current[id] <= y) kini = id;
+    if (kini !== aktif) setAktif(kini);
+  };
+  const catat = (id) => (e) => { pos.current[id] = e.nativeEvent.layout.y; };
+  const bagikan = async () => {
+    const url = `${MEREK.url}/acara/${acara.slug}`;
+    try {
+      if (Platform.OS !== 'web') await Share.share({ message: `${acara.judul} · ${url}` });
+      else if (navigator.share) await navigator.share({ title: acara.judul, url });
+      else { await navigator.clipboard.writeText(url); umumkan('Tautan acara disalin'); }
+    } catch { /* dibatalkan */ }
+  };
+
+  const t = j ? fmtTglAngka(j.mulai) : null;
+  const tAkhir = j && multiHari ? fmtTglAngka(j.selesai) : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: W.malam }}>
-      <ScrollView ref={gulir} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 + inset.bottom }}>
-        <View style={[s.hero, { backgroundColor: tinta.a, paddingTop: inset.top }]}>
-          <View style={s.titik} aria-hidden>
-            <Raster opasitas={0.22} />
+      <ScrollView ref={gulir} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 + inset.bottom }} stickyHeaderIndices={[1]} onScroll={saatGulir} scrollEventThrottle={48}>
+        <View>
+          <View style={[s.hero, { backgroundColor: tinta.a, paddingTop: inset.top }]}>
+            <View style={s.titik} aria-hidden>
+              <Raster opasitas={0.22} />
+            </View>
+            <BilahAtas label={`${acara.kota} · ${acara.kategori}`} warna={W.tinta} kanan={(
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable role="button" aria-label="Simpan acara" aria-pressed={disimpan} onPress={() => { data.simpanAcara(acara.slug); umumkan(disimpan ? 'Dihapus dari simpanan' : 'Disimpan. Saring "Hanya yang kusimpan" di Jelajah.'); }} style={s.bulat}>
+                  <Ikon nama={disimpan ? 'hatiPenuh' : 'hati'} warna={disimpan ? W.merahTua : W.tinta} ukuran={20} />
+                </Pressable>
+                <Pressable role="button" aria-label="Bagikan acara" onPress={bagikan} style={s.bulat}>
+                  <Ikon nama="bagikan" warna={W.tinta} ukuran={20} />
+                </Pressable>
+              </View>
+            )} />
+            <View style={s.posterBingkai}>
+              <Poster acara={acara} />
+              <View style={s.selotip} />
+            </View>
           </View>
-          <BilahAtas label={`${acara.kota} · ${acara.kategori}`} warna={W.tinta} />
-          <View style={s.posterBingkai}>
-            <Poster acara={acara} />
-            <View style={s.selotip} />
+
+          <View style={s.badan}>
+            <Mono warna={tinta.a}>{acara.kota} · {acara.tempat.split(' di ')[0]}</Mono>
+            <Judul level={1} ukuran={44} style={{ marginTop: 6 }}>{acara.judul}</Judul>
+            <T warna={W.redup} style={{ marginTop: 10 }}>{acara.ringkas}</T>
+
+            <View style={s.ringkasKarcis}>
+              <View style={s.rkTanggal}>
+                <Text style={s.rkKecil}>{t ? (tAkhir ? `${t.hari}–${tAkhir.hari}` : t.hari) : 'H+'}</Text>
+                <Text style={s.rkBesar}>{t ? (tAkhir ? `${t.tgl}–${tAkhir.tgl}` : t.tgl) : Math.max(0, acara.mulai[0])}</Text>
+                <Text style={s.rkKecil}>{t ? t.bulan : 'hari'}</Text>
+              </View>
+              <Takik arah="tegak" latar={W.malam} ukuran={16} />
+              <View style={s.rkTengah}>
+                <Text style={s.rkLabel}>Jam (WIB)</Text>
+                <Text style={s.rkNilai}>{multiHari ? `${fmtJamData(acara.harian[0], acara.harian[1])}–${fmtJamData(acara.harian[2], acara.harian[3])} tiap hari` : `${jamMulai(acara).replace(' WIB', '')}–${fmtJamData(acara.selesai[1], acara.selesai[2])}`}</Text>
+                <Text style={s.rkLabel}>Pintu dibuka</Text>
+                <Text style={s.rkNilai}>{fmtJamData(acara.pintu[1], acara.pintu[2])} · {acara.usia.split(' (')[0]}</Text>
+              </View>
+              <Takik arah="tegak" latar={W.malam} ukuran={16} />
+              <View style={[s.rkHarga, { backgroundColor: tinta.a }]}>
+                <Text style={s.rkKecilGelap}>mulai</Text>
+                <Text style={s.rkHargaTeks}>{rupiahRingkas(hargaMulai(acara))}</Text>
+              </View>
+            </View>
+            <View style={[s.status, { backgroundColor: st === 'berlangsung' ? W.hijau : selesai ? W.malam3 : W.kuning }]}>
+              <Ikon nama="jam" warna={selesai ? W.terang : W.tinta} ukuran={18} />
+              <Text style={[s.statusTeks, selesai && { color: W.terang }]} aria-live="polite">{hitung}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={s.badan}>
-          <Mono warna={tinta.a}>{acara.kota} · {acara.tempat.split(' di ')[0]}</Mono>
-          <Judul level={1} ukuran={44} style={{ marginTop: 6 }}>{acara.judul}</Judul>
-          <T warna={W.redup} style={{ marginTop: 10 }}>{acara.ringkas}</T>
-
-          <View style={s.bento}>
-            <View style={[s.ubin, s.ubinLebar, { backgroundColor: W.kertas }]}>
-              <View style={s.barisIkon}><Ikon nama="kalender" warna={W.tinta} ukuran={18} /><Mono warna={W.tinta2}>Jadwal (WIB)</Mono></View>
-              <Text style={s.ubinBesar}>
-                {j ? (multiHari ? fmtRentang(j.mulai, j.selesai) : fmtTglPanjang(j.mulai)) : `${labelHari(acara)}`}
-              </Text>
-              <Text style={s.ubinKecil}>
-                {multiHari ? `Setiap hari ${fmtJamData(acara.harian[0], acara.harian[1])}–${fmtJamData(acara.harian[2], acara.harian[3])} WIB` : `${jamMulai(acara).replace(' WIB', '')}–${fmtJamData(acara.selesai[1], acara.selesai[2])} WIB · pintu ${fmtJamData(acara.pintu[1], acara.pintu[2])}`}
-              </Text>
-            </View>
-            <View style={[s.ubin, { backgroundColor: st === 'berlangsung' ? W.hijau : W.kuning }]}>
-              <View style={s.barisIkon}><Ikon nama="jam" warna={W.tinta} ukuran={18} /><Mono warna={W.tinta}>Waktu</Mono></View>
-              <Text style={[s.ubinSedang, { color: W.tinta }]} aria-live="polite">{hitung}</Text>
-            </View>
-            <View style={[s.ubin, { backgroundColor: W.malam3 }]}>
-              <View style={s.barisIkon}><Ikon nama="orang" warna={W.terang} ukuran={18} /><Mono>Usia</Mono></View>
-              <Text style={[s.ubinSedang, { color: W.terang }]}>{acara.usia}</Text>
-            </View>
-            <View style={[s.ubin, s.ubinLebar, { backgroundColor: W.malam2, borderWidth: 1.5, borderColor: W.garis }]}>
-              <View style={s.barisIkon}><Ikon nama="lokasi" warna={W.terang} ukuran={18} /><Mono>Lokasi</Mono></View>
-              <Text style={[s.ubinSedang, { color: W.terang }]}>{acara.tempat}</Text>
-              <Text style={[s.ubinKecil, { color: W.redup }]}>Titik masuk dan petunjuk arah dikirim lewat aplikasi H-1. Lokasi ditulis umum karena acara ini rekaan.</Text>
-            </View>
-          </View>
-
-          <Judul level={2} ukuran={28} style={s.subjudul}>Tentang acara</Judul>
-          {acara.deskripsi.map((p, i) => <T key={i} warna={W.terang} style={{ marginBottom: 10 }}>{p}</T>)}
-          <View style={s.foto}>
-            <Foto slug={acara.slug} alt={acara.foto} />
-            <View style={[s.fotoLabel, { backgroundColor: tinta.a }]}><Text style={s.fotoLabelTeks}>Suasana</Text></View>
-          </View>
-          <Mono ukuran={10.5} style={{ marginTop: 6 }}>Foto ilustrasi CC0 bernuansa risograf, bukan lokasi acara</Mono>
-
-          <Judul level={2} ukuran={28} style={s.subjudul}>{LABEL_PENGISI[acara.kategori]}</Judul>
-          <View style={s.pengisi}>
-            {acara.pengisi.map((p) => (
-              <View key={p.nama} style={s.kartuPengisi}>
-                <Tokoh gaya={p.gaya} ukuran={64} label={`Ilustrasi ${p.nama}`} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.namaPengisi}>{p.nama}</Text>
-                  <Text style={s.peranPengisi}>{p.peran}</Text>
-                </View>
-              </View>
+        <View style={s.tabBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 4 }}>
+            {BAGIAN.map(([id, label]) => (
+              <Pressable key={id} role="button" aria-current={aktif === id ? 'true' : undefined} onPress={() => ke(id)} style={[s.tab, aktif === id && s.tabAktif]}>
+                <Text style={[s.tabTeks, aktif === id && { color: W.tinta, fontFamily: H.tebal }]}>{label}</Text>
+              </Pressable>
             ))}
-            <Mono ukuran={10.5}>Ilustrasi & nama rekaan</Mono>
+          </ScrollView>
+        </View>
+
+        <View style={s.badan} onLayout={(e) => { posWadah.current = e.nativeEvent.layout.y; }}>
+          <View onLayout={catat('tentang')}>
+            <Judul level={2} ukuran={28} style={s.subjudul}>Tentang acara</Judul>
+            {acara.deskripsi.map((p, i) => <T key={i} warna={W.terang} style={{ marginBottom: 10 }}>{p}</T>)}
+            <View style={s.foto}>
+              <Foto slug={acara.slug} alt={acara.foto} />
+              <View style={[s.fotoLabel, { backgroundColor: tinta.a }]}><Text style={s.fotoLabelTeks}>Suasana</Text></View>
+            </View>
+            <Mono style={{ marginTop: 6 }}>Foto ilustrasi CC0 bernuansa risograf, bukan lokasi acara</Mono>
           </View>
 
-          <Judul level={2} ukuran={28} style={s.subjudul}>Susunan acara</Judul>
-          <View style={s.rundown}>
-            {acara.rundown.map(([h, jm, mn, isi], i) => {
-              const pemisah = multiHari && h !== hariSebelum;
-              hariSebelum = h;
-              return (
-                <View key={i}>
-                  {pemisah ? <Mono warna={W.kuning} style={{ marginTop: i ? 10 : 0, marginBottom: 6 }}>{j ? fmtTglPanjang(j.rundown[i].waktu) : `Hari ke-${h - acara.mulai[0] + 1}`}</Mono> : null}
-                  <View style={s.rundownBaris}>
-                    <Text style={s.rundownJam}>{fmtJamData(jm, mn)}</Text>
-                    <View style={[s.rundownTitik, { backgroundColor: tinta.a }]} />
-                    <Text style={s.rundownIsi}>{isi}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-
-          <View onLayout={(e) => { posTiket.current = e.nativeEvent.layout.y; }}>
-            <Judul level={2} ukuran={28} style={s.subjudul}>Pilih tiket</Judul>
-          </View>
-          <View style={{ gap: 12 }}>
-            {acara.tiket.map((k) => {
-              const laku = terjual(data, acara.slug, k.id);
-              const sisa = k.kuota - laku;
-              const habis = sisa <= 0;
-              const persen = Math.min(100, Math.round((laku / k.kuota) * 100));
-              return (
-                <View key={k.id} style={[s.kat, habis && { backgroundColor: W.kertas2 }]}>
-                  <View style={s.katAtas}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={s.katNama}>{k.nama}</Text>
-                      <Text style={s.katCatatan}>{k.catatan}</Text>
+          <View onLayout={catat('susunan')}>
+            <Judul level={2} ukuran={28} style={s.subjudul}>Susunan acara</Judul>
+            <View style={s.rundown}>
+              {acara.rundown.map(([h, jm, mn, isi], i) => {
+                const pemisah = multiHari && h !== hariSebelum;
+                hariSebelum = h;
+                return (
+                  <View key={i}>
+                    {pemisah ? <Mono warna={W.kuning} style={{ marginTop: i ? 10 : 0, marginBottom: 6 }}>{j ? fmtTglPanjang(j.rundown[i].waktu) : `Hari ke-${h - acara.mulai[0] + 1}`}</Mono> : null}
+                    <View style={s.rundownBaris}>
+                      <Text style={s.rundownJam}>{fmtJamData(jm, mn)}</Text>
+                      <View style={[s.rundownTitik, { backgroundColor: tinta.a }]} />
+                      <Text style={s.rundownIsi}>{isi}</Text>
                     </View>
-                    <Text style={s.katHarga}>{rupiah(k.harga)}</Text>
                   </View>
-                  <View style={s.meter} role="progressbar" aria-label={`Terjual ${laku} dari ${k.kuota}`} aria-valuemin={0} aria-valuemax={k.kuota} aria-valuenow={laku}>
-                    <View style={[s.meterIsi, { width: `${persen}%`, backgroundColor: habis ? W.tinta2 : tinta.a }]} />
-                  </View>
-                  <Takik latar={W.malam} ukuran={18} />
-                  <View style={s.katBawah}>
-                    <Text style={[s.katSisa, sisa > 0 && sisa <= 20 && { color: W.merahTua }]}>
-                      {habis ? 'Habis terjual' : sisa <= 20 ? `Hampir habis · sisa ${sisa}` : `Sisa ${sisa} dari ${k.kuota}`}
-                    </Text>
-                    {habis || selesai ? (
-                      <Tombol varian="gelap" kecil label={habis ? 'Habis' : 'Selesai'} disabled />
-                    ) : (
-                      <TombolTautan href={{ pathname: '/pesan/[slug]', params: { slug: acara.slug, kategori: k.id } }} varian="gelap" kecil label="Pilih" aria-label={`Pilih ${k.nama}, ${rupiah(k.harga)}`} />
-                    )}
+                );
+              })}
+            </View>
+          </View>
+
+          <View onLayout={catat('pengisi')}>
+            <Judul level={2} ukuran={28} style={s.subjudul}>{LABEL_PENGISI[acara.kategori]}</Judul>
+            <View style={s.pengisi}>
+              {acara.pengisi.map((p) => (
+                <View key={p.nama} style={s.kartuPengisi}>
+                  <Tokoh gaya={p.gaya} ukuran={64} label={`Ilustrasi ${p.nama}`} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.namaPengisi}>{p.nama}</Text>
+                    <Text style={s.peranPengisi}>{p.peran}</Text>
                   </View>
                 </View>
-              );
-            })}
+              ))}
+              <Mono>Ilustrasi & nama rekaan</Mono>
+            </View>
+          </View>
+
+          <View onLayout={catat('tiket')}>
+            <Judul level={2} ukuran={28} style={s.subjudul}>Pilih tiket</Judul>
+            {adaDenah(acara) ? (
+              <View style={{ marginBottom: 14 }}>
+                <Denah acara={acara} onPilih={(id) => router.push({ pathname: '/pesan/[slug]', params: { slug: acara.slug, kategori: id } })} />
+                <T ukuran={13} warna={W.redup} style={{ marginTop: 6 }}>Ketuk area untuk langsung memesan. Denah ilustrasi; posisi kursi bebas di dalam area.</T>
+              </View>
+            ) : null}
+            <View style={{ gap: 12 }}>
+              {acara.tiket.map((k) => {
+                const laku = terjual(data, acara.slug, k.id);
+                const sisa = k.kuota - laku;
+                const habis = sisa <= 0;
+                const persen = Math.min(100, Math.round((laku / k.kuota) * 100));
+                return (
+                  <View key={k.id} style={[s.kat, habis && { backgroundColor: W.kertas2 }]}>
+                    <View style={s.katAtas}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={s.katNama}>{k.nama}</Text>
+                        <Text style={s.katCatatan}>{k.catatan}</Text>
+                      </View>
+                      <Text style={s.katHarga}>{rupiah(k.harga)}</Text>
+                    </View>
+                    <View style={s.meterBaris}>
+                      <View style={[s.meter, { flex: 1 }]} role="progressbar" aria-label={`Terjual ${laku} dari ${k.kuota}`} aria-valuemin={0} aria-valuemax={k.kuota} aria-valuenow={laku}>
+                        <View style={[s.meterIsi, { width: `${persen}%`, backgroundColor: habis ? W.tinta2 : tinta.a }]} />
+                      </View>
+                      {!habis && sisa <= 20 ? (
+                        <View style={s.cincin} aria-hidden>
+                          <Cincin sisa={sisa} kuota={k.kuota} ukuran={44} />
+                          <Text style={s.cincinTeks}>{sisa}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Takik latar={W.malam} ukuran={18} />
+                    <View style={s.katBawah}>
+                      <Text style={[s.katSisa, sisa > 0 && sisa <= 20 && { color: W.merahTua }]}>
+                        {habis ? 'Habis terjual' : sisa <= 20 ? `Hampir habis · sisa ${sisa}` : `Sisa ${ribuan(sisa)} dari ${ribuan(k.kuota)}`}
+                      </Text>
+                      {habis || selesai ? (
+                        <Tombol varian="gelap" kecil label={habis ? 'Habis' : 'Selesai'} disabled />
+                      ) : (
+                        <TombolTautan href={{ pathname: '/pesan/[slug]', params: { slug: acara.slug, kategori: k.id } }} varian="gelap" kecil label="Pilih" aria-label={`Pilih ${k.nama}, ${rupiah(k.harga)}`} />
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          <View onLayout={catat('lokasi')}>
+            <Judul level={2} ukuran={28} style={s.subjudul}>Lokasi</Judul>
+            <Peta acara={acara} />
+            <Text style={s.lokasiNama}>{acara.tempat}</Text>
+            <T ukuran={13.5} warna={W.redup}>Peta ilustrasi, bukan peta sungguhan; acara ini rekaan sehingga lokasinya ditulis umum. Titik masuk dan petunjuk arah dikirim lewat aplikasi H-1.</T>
+            <Tombol varian="garis" kecil label="Petunjuk arah (dikirim H-1)" kiri={<Ikon nama="lokasi" warna={W.terang} ukuran={18} />} onPress={() => umumkan('Petunjuk arah dikirim lewat aplikasi H-1 (simulasi).')} style={{ alignSelf: 'flex-start', marginTop: 10 }} />
           </View>
 
           <Judul level={2} ukuran={28} style={s.subjudul}>Ketentuan</Judul>
@@ -192,16 +272,14 @@ function Isi({ acara }) {
         </View>
       </ScrollView>
 
+      {kabar ? <View style={[s.kabar, { bottom: 92 + inset.bottom }]} role="status"><Text style={s.kabarTeks}>{kabar}</Text></View> : <View role="status" />}
+
       <View style={[s.aksi, { paddingBottom: 12 + inset.bottom }]}>
         <View style={{ flex: 1 }}>
           <Text style={s.aksiKecil}>{selesai ? 'Acara selesai' : semuaHabis ? 'Tiket habis' : 'Tiket mulai'}</Text>
           <Text style={s.aksiHarga}>{rupiah(hargaMulai(acara))}</Text>
         </View>
-        <Tombol
-          label={selesai || semuaHabis ? 'Lihat kategori' : 'Pilih tiket'}
-          onPress={() => gulir.current?.scrollTo({ y: posTiket.current - 8, animated: true })}
-          style={{ minWidth: 150 }}
-        />
+        <Tombol label={selesai || semuaHabis ? 'Lihat kategori' : 'Pilih tiket'} onPress={() => ke('tiket')} style={{ minWidth: 150 }} />
       </View>
     </View>
   );
@@ -215,6 +293,29 @@ const s = StyleSheet.create({
   posterBingkai: { width: '58%', alignSelf: 'center', transform: [{ rotate: '-2.5deg' }], marginTop: 4, backgroundColor: W.kertas, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
   selotip: { position: 'absolute', top: -10, left: '30%', width: '40%', height: 24, backgroundColor: 'rgba(244,236,220,0.75)', transform: [{ rotate: '3deg' }] },
   badan: { paddingHorizontal: 16, paddingTop: 22 },
+  bulat: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(244,236,220,0.85)' },
+  ringkasKarcis: { flexDirection: 'row', backgroundColor: W.kertas, borderRadius: 16, overflow: 'hidden', marginTop: 18, minHeight: 104 },
+  rkTanggal: { width: 76, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
+  rkKecil: { fontFamily: H.mono, fontSize: 12, color: W.tinta2, textTransform: 'uppercase' },
+  rkKecilGelap: { fontFamily: H.badan, fontSize: 12.5, color: W.tinta },
+  rkBesar: { fontFamily: H.display, fontSize: 34, lineHeight: 36, color: W.tinta, fontVariant: ['tabular-nums'] },
+  rkTengah: { flex: 1, paddingVertical: 12, paddingHorizontal: 12, gap: 1 },
+  rkLabel: { fontFamily: H.mono, fontSize: 12, color: W.tinta2, textTransform: 'uppercase' },
+  rkNilai: { fontFamily: H.tebal, fontSize: 14.5, lineHeight: 20, color: W.tinta, marginBottom: 4, fontVariant: ['tabular-nums'] },
+  rkHarga: { width: 82, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  rkHargaTeks: { fontFamily: H.display, fontSize: 24, lineHeight: 26, color: W.tinta },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, marginTop: 10 },
+  statusTeks: { fontFamily: H.tebal, fontSize: 14, color: W.tinta },
+  tabBar: { backgroundColor: W.malam, borderBottomWidth: 1, borderColor: W.garis, paddingVertical: 6, marginTop: 16 },
+  tab: { minHeight: 44, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center' },
+  tabAktif: { backgroundColor: W.kertas },
+  tabTeks: { fontFamily: H.badan, fontSize: 14.5, color: W.terang },
+  meterBaris: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 14, marginBottom: 12 },
+  cincin: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  cincinTeks: { position: 'absolute', fontFamily: H.mono, fontSize: 12, color: W.merahTua },
+  lokasiNama: { fontFamily: H.tebal, fontSize: 16, color: W.terang, marginTop: 12, marginBottom: 4 },
+  kabar: { position: 'absolute', left: 16, right: 16, backgroundColor: W.kuning, borderRadius: 12, padding: 12, zIndex: 5 },
+  kabarTeks: { fontFamily: H.tebal, fontSize: 14, color: W.tinta },
   bento: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
   ubin: { flexGrow: 1, flexBasis: '45%', borderRadius: 16, padding: 14, gap: 6 },
   ubinLebar: { flexBasis: '100%' },
@@ -240,7 +341,7 @@ const s = StyleSheet.create({
   katNama: { fontFamily: H.display, fontSize: 24, lineHeight: 24, color: W.tinta, textTransform: 'uppercase' },
   katCatatan: { fontFamily: H.badan, fontSize: 13, color: W.tinta2 },
   katHarga: { fontFamily: H.display, fontSize: 24, lineHeight: 26, color: W.tinta },
-  meter: { height: 8, marginHorizontal: 14, marginBottom: 14, borderRadius: 4, backgroundColor: W.kertas2, overflow: 'hidden' },
+  meter: { height: 8, borderRadius: 4, backgroundColor: W.kertas2, overflow: 'hidden' },
   meterIsi: { height: 8, borderRadius: 4 },
   katBawah: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, paddingLeft: 14, gap: 10 },
   katSisa: { fontFamily: H.mono, fontSize: 12, color: W.tinta2, textTransform: 'uppercase', flex: 1 },

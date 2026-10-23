@@ -20,6 +20,7 @@ export function T({ ukuran = 15, warna = W.terang, tebal, style, children, ...p 
 }
 
 export function Mono({ ukuran = 12, warna = W.redup, style, children, ...p }) {
+  ukuran = Math.max(12, ukuran); // label mono minimal 12 px
   return (
     <Text style={[{ fontFamily: H.mono, fontSize: ukuran, lineHeight: Math.round(ukuran * 1.4), letterSpacing: 0.6, color: warna, textTransform: 'uppercase' }, style]} {...p}>
       {children}
@@ -27,6 +28,8 @@ export function Mono({ ukuran = 12, warna = W.redup, style, children, ...p }) {
   );
 }
 
+// Gaya nonaktif yang jelas (garis putus, teks redup), bukan tombol aktif yang dipudarkan.
+const MATI = { bg: W.malam2, fg: W.redup, garis: W.garis };
 const VARIAN = {
   utama: { bg: W.jingga, fg: W.malam, garis: W.jingga },
   kertas: { bg: W.kertas, fg: W.tinta, garis: W.kertas },
@@ -36,7 +39,7 @@ const VARIAN = {
 };
 
 export const Tombol = forwardRef(function Tombol({ varian = 'utama', kiri, label, onPress, disabled, kecil, style, teksStyle, children, ...p }, ref) {
-  const v = VARIAN[varian];
+  const v = disabled ? MATI : VARIAN[varian];
   return (
     <Pressable
       ref={ref}
@@ -47,7 +50,7 @@ export const Tombol = forwardRef(function Tombol({ varian = 'utama', kiri, label
       style={({ pressed }) => [
         g.tombol,
         kecil && g.tombolKecil,
-        { backgroundColor: v.bg, borderColor: v.garis, opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ translateY: pressed ? 1 : 0 }] },
+        { backgroundColor: v.bg, borderColor: v.garis, borderStyle: disabled ? 'dashed' : 'solid', opacity: pressed ? 0.85 : 1, transform: [{ translateY: pressed ? 1 : 0 }] },
         ratakan(style),
       ]}
       {...p}
@@ -89,16 +92,19 @@ export function TombolTautan({ href, replace, ...p }) {
   );
 }
 
-export function Chip({ aktif, label, onPress, warna = W.jingga, ...p }) {
+/** Keping pilihan. `terang` = untuk latar kertas (lembar bawah). */
+export function Chip({ aktif, label, onPress, warna = W.jingga, terang, ...p }) {
+  const bg = aktif ? (terang ? W.tinta : warna) : 'transparent';
+  const fg = aktif ? (terang ? W.kertas : W.malam) : terang ? W.tinta : W.terang;
   return (
     <Pressable
       role="button"
       aria-pressed={!!aktif}
       onPress={onPress}
-      style={({ pressed }) => [g.chip, aktif ? { backgroundColor: warna, borderColor: warna } : null, pressed && { opacity: 0.8 }]}
+      style={({ pressed }) => [g.chip, terang && { borderColor: W.tinta2 }, aktif ? { backgroundColor: bg, borderColor: bg } : null, pressed && { opacity: 0.8 }]}
       {...p}
     >
-      <Text style={[g.chipTeks, { color: aktif ? W.malam : W.terang }]}>{label}</Text>
+      <Text style={[g.chipTeks, { color: fg }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -123,10 +129,10 @@ export const g = StyleSheet.create({
     minHeight: 50, paddingHorizontal: 20, borderRadius: 14, borderWidth: 1.5,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  tombolKecil: { minHeight: 40, paddingHorizontal: 14, borderRadius: 11 },
+  tombolKecil: { minHeight: 44, paddingHorizontal: 14, borderRadius: 11 },
   tombolTeks: { fontFamily: H.tebal, fontSize: 16, letterSpacing: 0.2 },
   chip: {
-    minHeight: 36, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderColor: W.garis,
+    minHeight: 44, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1.5, borderColor: W.garis,
     alignItems: 'center', justifyContent: 'center',
   },
   chipTeks: { fontFamily: H.tebal, fontSize: 14 },

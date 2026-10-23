@@ -215,7 +215,7 @@ export function Poster({ acara, lebar = '100%', tinggi, rasio = 3 / 4, potong = 
       width={lebar}
       height={tinggi}
       preserveAspectRatio={`xMidYMid ${potong}`}
-      label={hias ? undefined : `Poster ${acara.judul}`}
+      label={hias ? undefined : `Poster riso ${acara.judul}, ${acara.jenis} di ${acara.kota}`}
       style={{ aspectRatio: tinggi ? undefined : rasio, ...style }}
     >
       <Desain id={id} />

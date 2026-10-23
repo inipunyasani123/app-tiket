@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ACARA, BIAYA_LAYANAN, MAKS_PER_PESANAN, cariAcara, jadwal, rupiah, statusAcara } from '../../src/data/acara';
 import { H, TINTA, W } from '../../src/lib/tema';
 import { meta } from '../../src/lib/meta';
-import { MENIT, fmtTglPanjang, useSekarang } from '../../src/lib/waktu';
+import { MENIT, fmtRentang, fmtTglPanjang, useSekarang } from '../../src/lib/waktu';
 import { terjual, useData } from '../../src/lib/simpan';
 import { BilahAtas } from '../../src/ui/Layar';
 import { Judul, Ketuk, Mono, T, Tombol, TombolTautan } from '../../src/ui/dasar';
@@ -15,6 +15,8 @@ import { QR } from '../../src/ui/QR';
 import { Ikon } from '../../src/ui/Ikon';
 import { jamMulai, labelHari } from '../../src/ui/KartuAcara';
 import { HalamanTakAda } from '../../src/ui/TakAda';
+import { TiketTerbit } from '../../src/ui/TiketTerbit';
+import { Denah, adaDenah } from '../../src/ui/Denah';
 
 export function generateStaticParams() {
   return ACARA.map((a) => ({ slug: a.slug }));
@@ -119,7 +121,7 @@ function Alur({ acara, kategoriAwal }) {
             <View style={s.ringkasPoster}><Poster acara={acara} hias /></View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={s.ringkasJudul} numberOfLines={2}>{acara.judul}</Text>
-              <Text style={s.ringkasMeta}>{sekarang ? fmtTglPanjang(jadwal(acara, sekarang).mulai) : labelHari(acara)} · {jamMulai(acara)}</Text>
+              <Text style={s.ringkasMeta}>{sekarang ? (acara.harian ? fmtRentang(jadwal(acara, sekarang).mulai, jadwal(acara, sekarang).selesai) : fmtTglPanjang(jadwal(acara, sekarang).mulai)) : labelHari(acara)} · {jamMulai(acara)}</Text>
               <Text style={s.ringkasMeta}>{acara.kota}</Text>
             </View>
           </View>
@@ -132,6 +134,11 @@ function Alur({ acara, kategoriAwal }) {
         {langkah === 0 ? (
           <>
             <Judul level={1} ukuran={36}>Pilih tiket</Judul>
+            {adaDenah(acara) ? (
+              <View role="radiogroup" aria-label="Pilih area di denah">
+                <Denah acara={acara} pilih={katId} onPilih={setKatId} />
+              </View>
+            ) : null}
             <View role="radiogroup" aria-label="Kategori tiket" style={{ gap: 10 }}>
               {acara.tiket.map((k) => {
                 const sk = tersedia(k);
@@ -212,7 +219,7 @@ function Alur({ acara, kategoriAwal }) {
                   <Text style={s.total}>{rupiah(total)}</Text>
                 </View>
                 <View style={s.waktuBayar}>
-                  <Mono warna={W.tinta2} ukuran={10}>Bayar dalam</Mono>
+                  <Mono warna={W.tinta2}>Bayar dalam</Mono>
                   <Text style={s.waktuAngka} aria-label={`${mm} menit ${ss} detik`}>{mm}:{ss}</Text>
                 </View>
               </View>
@@ -223,7 +230,7 @@ function Alur({ acara, kategoriAwal }) {
                     <QR isi={`SIMULASI QRIS KARCIS WETAN ${idPesanan} ${total} - BUKAN TAGIHAN ASLI`} ukuran={188} label="QR pembayaran simulasi, jangan dipindai untuk membayar" />
                     <View style={s.capSimulasi}><Text style={s.capSimulasiTeks}>Simulasi</Text></View>
                   </View>
-                  <T ukuran={13.5} warna={W.tinta2} style={{ textAlign: 'center' }}>Ini QR contoh, bukan QRIS sungguhan. Jangan dipindai dengan aplikasi bank atau dompet digital.</T>
+                  <T ukuran={13.5} warna={W.tinta2} style={{ textAlign: 'center' }}>QRIS sungguhan bisa dibayar dari aplikasi bank atau dompet digital apa pun. Yang ini hanya QR contoh: jangan dipindai untuk membayar.</T>
                 </View>
               ) : (
                 <View style={[s.tagihanBawah, { alignItems: 'stretch' }]}>
@@ -254,28 +261,7 @@ function Alur({ acara, kategoriAwal }) {
         ) : null}
 
         {langkah === 3 ? (
-          <>
-            <View style={s.sukses}>
-              <View style={s.capLunas}><Text style={s.capLunasTeks}>{gratis ? 'Terdaftar' : 'Lunas'}</Text></View>
-              <Judul level={1} ukuran={40}>Tiket terbit!</Judul>
-              <T warna={W.redup}>{kode.length} e-tiket {acara.judul} sudah masuk ke Tiketku. Tunjukkan QR-nya di gerbang.</T>
-            </View>
-            {kode.map((k, i) => (
-              <Link key={k} href={{ pathname: '/e-tiket', params: { kode: k } }} asChild>
-                <Ketuk style={s.stub} aria-label={`Buka e-tiket ${k}`}>
-                  <View style={[s.stubWarna, { backgroundColor: tinta.a }]}><Text style={s.stubNo}>{String(i + 1).padStart(2, '0')}</Text></View>
-                  <Takik arah="tegak" latar={W.malam} ukuran={16} />
-                  <View style={{ flex: 1, padding: 12, gap: 2 }}>
-                    <Text style={s.stubKode}>{k}</Text>
-                    <Text style={s.opsiKetGelap}>{kat.nama} · {i === 0 ? pemesan.nama : pemegang[i]}</Text>
-                  </View>
-                  <View style={{ paddingRight: 12 }}><Ikon nama="kanan" warna={W.tinta} /></View>
-                </Ketuk>
-              </Link>
-            ))}
-            <TombolTautan href={{ pathname: '/e-tiket', params: { kode: kode[0] } }} replace label="Buka e-tiket" />
-            <TombolTautan href="/tiket" replace varian="garis" label="Ke Tiketku" />
-          </>
+          <TiketTerbit acara={acara} kat={kat} kode={kode} nama={Array.from({ length: kode.length }, (_, i) => (i === 0 ? pemesan.nama : pemegang[i]))} gratis={gratis} total={total} />
         ) : null}
       </ScrollView>
     </View>

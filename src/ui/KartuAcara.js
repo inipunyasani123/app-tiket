@@ -4,19 +4,17 @@ import { H, TINTA, W } from '../lib/tema';
 import { Poster } from './Poster';
 import { Takik } from './Karcis';
 import { Ketuk, Mono } from './dasar';
-import { bukaBerikut, hargaMulai, jadwal, rupiahRingkas, statusAcara } from '../data/acara';
+import { bukaBerikut, hargaMulai, jadwal, labelHari, rupiahRingkas, statusAcara } from '../data/acara';
 import { fmtHariPendek, fmtJam, fmtTgl } from '../lib/waktu';
 import { terjual, useData } from '../lib/simpan';
 
 const dua = (n) => String(n).padStart(2, '0');
 
-/** Label hari statis (tidak butuh jam perangkat): aman untuk HTML statis. */
-export function labelHari(acara) {
-  const h = acara.mulai[0];
-  if (h === 0) return 'Hari ini';
-  if (h === 1) return 'Besok';
-  if (h === 2) return 'Lusa';
-  return `Dalam ${h} hari`;
+export { labelHari } from '../data/acara';
+/** Tanggal ringkas dari jadwal absolut; acara beberapa hari ditulis sebagai rentang. */
+export function teksTanggal(acara, j) {
+  if (acara.harian) return `${fmtHariPendek(j.mulai)}–${fmtHariPendek(j.selesai)}, ${fmtTgl(j.mulai)}–${fmtTgl(j.selesai)} · ${fmtJam(j.mulai)} WIB`;
+  return `${fmtHariPendek(j.mulai)}, ${fmtTgl(j.mulai)} · ${fmtJam(j.mulai)} WIB`;
 }
 export const jamMulai = (acara) => `${dua(acara.mulai[1])}.${dua(acara.mulai[2])} WIB`;
 
@@ -56,10 +54,10 @@ export function KartuAcara({ acara, sekarang }) {
           </View>
         </View>
         <View style={s.isi}>
-          <Mono ukuran={10.5} warna={tinta.teks}>{acara.kota}</Mono>
+          <Mono warna={tinta.teks}>{acara.kota}</Mono>
           <Text style={s.judul} numberOfLines={3}>{acara.judul}</Text>
           <Text style={s.meta}>
-            {j ? `${fmtHariPendek(j.mulai)}, ${fmtTgl(j.mulai)} · ${fmtJam(j.mulai)} WIB` : `${labelHari(acara)} · ${jamMulai(acara)}`}
+            {j ? teksTanggal(acara, j) : `${labelHari(acara)} · ${jamMulai(acara)}`}
           </Text>
           <LabelStatus acara={acara} sekarang={sekarang} />
         </View>
@@ -81,9 +79,9 @@ const s = StyleSheet.create({
   judul: { fontFamily: H.display, fontSize: 21, lineHeight: 21, color: W.tinta, textTransform: 'uppercase' },
   meta: { fontFamily: H.badan, fontSize: 13, lineHeight: 18, color: W.tinta2 },
   sobek: { width: 78, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, gap: 1 },
-  mulai: { fontFamily: H.badan, fontSize: 11.5, color: W.tinta },
+  mulai: { fontFamily: H.badan, fontSize: 12, color: W.tinta },
   harga: { fontFamily: H.display, fontSize: 22, lineHeight: 24, color: W.tinta },
-  sisa: { fontFamily: H.mono, fontSize: 10, color: W.tinta, textTransform: 'uppercase', marginTop: 2 },
+  sisa: { fontFamily: H.mono, fontSize: 12, color: W.tinta, textTransform: 'uppercase', marginTop: 2 },
   status: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 2 },
-  statusTeks: { fontFamily: H.mono, fontSize: 10.5, textTransform: 'uppercase' },
+  statusTeks: { fontFamily: H.mono, fontSize: 12, textTransform: 'uppercase' },
 });

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ketuk } from './dasar';
 import { Link } from 'expo-router';
-import { cariAcara, jadwal } from '../data/acara';
+import { cariAcara, mulaiAcuan } from '../data/acara';
 import { HARI, JAM, awalHari, fmtHariPendek, fmtJam, fmtTgl, hitungMundur } from '../lib/waktu';
 import { useData } from '../lib/simpan';
 import { H, W } from '../lib/tema';
@@ -20,8 +20,8 @@ export function daftarPengingat(data, sekarang) {
   for (const t of data.tiket) {
     if (t.status !== 'aktif' || t.milikTeman || !t.pengingat?.length) continue;
     const acara = cariAcara(t.acara);
-    const { mulai } = jadwal(acara, sekarang);
-    if (mulai <= sekarang) continue;
+    const mulai = mulaiAcuan(acara, sekarang);
+    if (mulai == null) continue;
     for (const id of t.pengingat) {
       const o = OPSI_PENGINGAT.find((x) => x.id === id);
       if (o) hasil.push({ tiket: t, acara, mulai, waktu: o.waktu(mulai), label: o.label });

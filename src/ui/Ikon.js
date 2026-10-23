@@ -25,6 +25,12 @@ const P = {
   bagikan: (c) => <Path d="M12 3v12M7 8l5-5 5 5M5 14v5a1 1 0 001 1h12a1 1 0 001-1v-5" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   info: (c) => <><Circle cx="12" cy="12" r="9" stroke={c} strokeWidth="2" fill="none" /><Path d="M12 11v6M12 7.5v.5" stroke={c} strokeWidth="2.4" strokeLinecap="round" /></>,
   hapus: (c) => <Path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke={c} strokeWidth="2" strokeLinejoin="round" fill="none" />,
+  hati: (c) => <Path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" stroke={c} strokeWidth="2" strokeLinejoin="round" fill="none" />,
+  hatiPenuh: (c) => <Path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" stroke={c} strokeWidth="2" strokeLinejoin="round" fill={c} />,
+  cari: (c) => <><Circle cx="11" cy="11" r="6.5" stroke={c} strokeWidth="2" fill="none" /><Path d="M16 16l4.5 4.5" stroke={c} strokeWidth="2.2" strokeLinecap="round" /></>,
+  saring: (c) => <><Path d="M4 6h16M7 12h10M10 18h4" stroke={c} strokeWidth="2.2" strokeLinecap="round" /></>,
+  daftar: (c) => <><Path d="M9 6h11M9 12h11M9 18h11" stroke={c} strokeWidth="2" strokeLinecap="round" /><Circle cx="5" cy="6" r="1.3" fill={c} /><Circle cx="5" cy="12" r="1.3" fill={c} /><Circle cx="5" cy="18" r="1.3" fill={c} /></>,
+  ulang: (c) => <Path d="M4 12a8 8 0 0113.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 01-13.7 5.6L4 15M4 20v-5h5" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
   kunci: (c) => <><Rect x="5" y="10" width="14" height="10" rx="2" stroke={c} strokeWidth="2" fill="none" /><Path d="M8 10V7a4 4 0 018 0v3" stroke={c} strokeWidth="2" fill="none" /></>,
 };
 

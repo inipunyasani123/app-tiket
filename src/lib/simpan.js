@@ -6,7 +6,7 @@ import { ACARA, cariAcara } from '../data/acara';
 
 const KUNCI = 'karcis-wetan:v1';
 
-const KOSONG = { versi: 1, pesanan: [], tiket: [], masuk: {}, log: [], dimuat: false };
+const KOSONG = { versi: 1, pesanan: [], tiket: [], masuk: {}, log: [], disimpan: [], pengantar: false, setel: { bunyi: false, getar: true }, dimuat: false };
 
 function semuaKode(s) {
   const ada = new Set(s.tiket.map((t) => t.kode));
@@ -40,9 +40,17 @@ function kurangi(s, aksi) {
       return { ...s, tiket: [{ ...aksi.tiket, status: 'aktif', dompet: false, pengingat: [], diterima: aksi.waktu }, ...s.tiket] };
     }
     case 'masuk': {
-      const perAcara = { ...(s.masuk[aksi.acara] || {}), [aksi.kode]: { waktu: aksi.waktu, gerbang: aksi.gerbang } };
+      const perAcara = { ...(s.masuk[aksi.acara] || {}), [aksi.kode]: { waktu: aksi.waktu, gerbang: aksi.gerbang, ...(aksi.alasan ? { manual: aksi.alasan } : {}) } };
       return { ...s, masuk: { ...s.masuk, [aksi.acara]: perAcara } };
     }
+    case 'batalMasuk': {
+      const perAcara = { ...(s.masuk[aksi.acara] || {}) }; delete perAcara[aksi.kode];
+      return { ...s, masuk: { ...s.masuk, [aksi.acara]: perAcara }, log: s.log.filter((l) => l.id !== aksi.logId) };
+    }
+    case 'simpanAcara':
+      return { ...s, disimpan: s.disimpan.includes(aksi.slug) ? s.disimpan.filter((x) => x !== aksi.slug) : [...s.disimpan, aksi.slug] };
+    case 'atur':
+      return { ...s, ...aksi.ubah };
     case 'log':
       return { ...s, log: [aksi.entri, ...s.log].slice(0, 60) };
     case 'resetPanitia': {
@@ -50,7 +58,7 @@ function kurangi(s, aksi) {
       return { ...s, masuk, log: s.log.filter((l) => l.acara !== aksi.acara) };
     }
     case 'hapusSemua':
-      return { ...KOSONG, dimuat: true, ...aksi.contoh };
+      return { ...KOSONG, dimuat: true, pengantar: true, ...aksi.contoh };
     default:
       return s;
   }
@@ -105,12 +113,15 @@ export function PenyediaData({ children }) {
     return kodeBaru;
   }, []);
   const terima = useCallback((tiket) => kirim({ t: 'terima', tiket, waktu: Date.now() }), []);
-  const catatMasuk = useCallback((acara, kode, gerbang) => kirim({ t: 'masuk', acara, kode, gerbang, waktu: Date.now() }), []);
-  const catatLog = useCallback((entri) => kirim({ t: 'log', entri: { ...entri, waktu: Date.now(), id: Math.random().toString(36).slice(2) } }), []);
+  const catatMasuk = useCallback((acara, kode, gerbang, alasan) => kirim({ t: 'masuk', acara, kode, gerbang, alasan, waktu: Date.now() }), []);
+  const catatLog = useCallback((entri) => { const id = Math.random().toString(36).slice(2); kirim({ t: 'log', entri: { ...entri, waktu: Date.now(), id } }); return id; }, []);
+  const batalMasuk = useCallback((acara, kode, logId) => kirim({ t: 'batalMasuk', acara, kode, logId }), []);
+  const simpanAcara = useCallback((slug) => kirim({ t: 'simpanAcara', slug }), []);
+  const atur = useCallback((ubah) => kirim({ t: 'atur', ubah }), []);
   const resetPanitia = useCallback((acara) => kirim({ t: 'resetPanitia', acara }), []);
   const hapusSemua = useCallback(() => kirim({ t: 'hapusSemua', contoh: contohAwal(Date.now()) }), []);
 
-  const nilai = useMemo(() => ({ ...s, beli, ubahTiket, alihkan, terima, catatMasuk, catatLog, resetPanitia, hapusSemua }), [s, beli, ubahTiket, alihkan, terima, catatMasuk, catatLog, resetPanitia, hapusSemua]);
+  const nilai = useMemo(() => ({ ...s, beli, ubahTiket, alihkan, terima, catatMasuk, catatLog, batalMasuk, simpanAcara, atur, resetPanitia, hapusSemua }), [s, beli, ubahTiket, alihkan, terima, catatMasuk, catatLog, batalMasuk, simpanAcara, atur, resetPanitia, hapusSemua]);
   return createElement(Konteks.Provider, { value: nilai }, children);
 }
 

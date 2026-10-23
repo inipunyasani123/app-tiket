@@ -1,6 +1,7 @@
 // Kode tiket: KW-XXXX-XXXX (7 karakter acak + 1 karakter cek berbobot, modulo 31).
 // Alfabet tanpa 0/O/1/I/L supaya tidak tertukar saat diketik panitia.
 import { ACARA, jendela } from '../data/acara';
+import { MENIT } from './waktu';
 
 const ABJAD = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const N = ABJAD.length; // 31, prima
@@ -116,3 +117,27 @@ export function cariAcaraKode(kode) {
   for (const a of ACARA) if (pembeliLain(a.slug).peta.has(kode)) return a.slug;
   return null;
 }
+
+/**
+ * Riwayat pemeriksaan contoh dari petugas lain (deterministik): kedatangan sah, sesekali tiket ganda,
+ * dan beberapa kode lama yang sudah dialihkan. Hanya yang waktunya sudah lewat. Terbaru dulu.
+ */
+export function riwayatContoh(acara, sekarang) {
+  const { urut, hangus } = pembeliLain(acara.slug);
+  const hasil = [];
+  for (let i = 0; i < urut.length; i++) {
+    const d = urut[i];
+    const w = waktuTiba(acara, d, sekarang);
+    if (w == null) continue;
+    hasil.push({ waktu: w, kode: d.kode, hasil: 'sah', gerbang: d.gerbang, pemegang: d.pemegang, kategori: d.kategori, contoh: true });
+    if (i % 23 === 5) hasil.push({ waktu: w + (6 + (i % 29)) * MENIT, kode: d.kode, hasil: 'ganda', gerbang: d.gerbang === 'A' ? 'B' : 'A', pemegang: d.pemegang, kategori: d.kategori, contoh: true });
+  }
+  hangus.forEach((d, i) => {
+    const w = waktuTiba(acara, { tiba: 0.18 + i * 0.27 }, sekarang);
+    hasil.push({ waktu: w, kode: d.kode, hasil: 'dialihkan', gerbang: i % 2 ? 'B' : 'A', pemegang: d.pemegang, kategori: d.kategori, contoh: true });
+  });
+  return hasil.filter((x) => x.waktu <= sekarang).sort((a, b) => b.waktu - a.waktu);
+}
+
+/** Kode tersamar untuk daftar: KW-7K3Q-••••. */
+export const samarkan = (kode) => kode.slice(0, 8) + '••••';

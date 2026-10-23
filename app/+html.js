@@ -26,7 +26,8 @@ body{display:flex;flex-direction:column;overflow:hidden;font-family:SchibstedGro
 .panel{display:none}
 :focus-visible{outline:3px solid var(--kuning)!important;outline-offset:2px}
 ::selection{background:var(--jingga);color:var(--tinta)}
-.bilah-demo{flex:none;margin:0;padding:8px 16px;background:#0f1b33;color:#dfe6f3;font:400 12.5px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;text-align:center}
+.bilah-demo{flex:none;margin:0;padding:6px 12px;background:#0f1b33;color:#dfe6f3;font:400 12.5px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;text-align:center}
+@media (max-width:430px){.bilah-demo .opsional{display:none}}
 .bilah-demo a{color:#fff;font-weight:600;text-decoration:underline;text-underline-offset:3px;display:inline-block;padding:3px 0}
 @media (min-width:768px){
   html,body{height:auto;min-height:100%}
@@ -124,7 +125,7 @@ export default function Root({ children, pathname = '/' }) {
           </main>
         </div>
         <aside className="bilah-demo" aria-label="Tentang situs demo ini">
-          Situs demo buatan PintuWeb — nama dan isinya rekaan.{' '}
+          Situs demo buatan PintuWeb<span className="opsional"> — nama dan isinya rekaan</span>.{' '}
           <a href={KONTAK}>Buat yang seperti ini →</a>
         </aside>
         {bodyNodes}

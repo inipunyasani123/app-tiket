@@ -25,6 +25,9 @@ export const MAKS_PER_PESANAN = 4;
 export const ACARA = [
   {
     slug: 'pameran-cetak-saring',
+    jenis: 'pameran seni cetak',
+    gerbang: { masuk: 'A', kelas: 'B' },
+    denah: null,
     foto: 'Cetakan sablon bermotif bulat dengan tinta merah muda di atas latar gelap',
     judul: 'Pameran Cetak Saring & Zine',
     baris: ['CETAK', 'SARING'],
@@ -33,14 +36,14 @@ export const ACARA = [
     tempat: 'Gudang seni di kawasan kota lama Malang',
     tinta: 'pink',
     poster: 'saring',
-    ringkas: 'Dua hari, seratus lebih karya sablon, poster, dan zine dari kolektif muda Jawa Timur. Masuk gratis, wajib daftar.',
+    ringkas: 'Tiga hari, seratus lebih karya sablon, poster, dan zine dari kolektif muda Jawa Timur. Masuk gratis, wajib daftar.',
     deskripsi: [
-      'Pameran dua hari untuk karya cetak saring (sablon), poster tempel, dan zine buatan tangan. Kamu bisa melihat proses mencetak langsung di meja kerja terbuka dan membawa pulang cetakan edisi terbatas.',
+      'Pameran tiga hari untuk karya cetak saring (sablon), poster tempel, dan zine buatan tangan. Kamu bisa melihat proses mencetak langsung di meja kerja terbuka dan membawa pulang cetakan edisi terbatas.',
       'Tiket masuk gratis dan berlaku satu kali masuk di salah satu hari. Kuota dibatasi agar ruang tetap lega. Kelas cetak 90 menit memakai tinta berbasis air; semua bahan disediakan.',
     ],
-    mulai: [0, 9, 0],
+    mulai: [-1, 9, 0],
     selesai: [1, 21, 0],
-    pintu: [0, 9, 0],
+    pintu: [-1, 9, 0],
     harian: [9, 0, 21, 0],
     usia: 'Semua umur',
     pengisi: [
@@ -49,10 +52,11 @@ export const ACARA = [
       { nama: 'Arsip Zine Brantas', peran: 'Lapak zine', gaya: { rambut: 'kerudung', kulit: 3, warna: 'biru', properti: null } },
     ],
     rundown: [
-      [0, 9, 0, 'Hari 1: pintu dibuka, pameran berjalan'],
-      [0, 10, 30, 'Kelas cetak sesi 1 (90 menit)'],
+      [-1, 9, 0, 'Pintu dibuka, pameran berjalan'],
+      [-1, 10, 30, 'Kelas cetak sesi 1 (90 menit)'],
+      [0, 9, 0, 'Pintu dibuka'],
       [0, 16, 0, 'Bincang kolektif: dari fotokopi ke sablon'],
-      [1, 9, 0, 'Hari 2: pintu dibuka'],
+      [1, 9, 0, 'Pintu dibuka'],
       [1, 13, 0, 'Kelas cetak sesi 2 (90 menit)'],
       [1, 21, 0, 'Pameran ditutup'],
     ],
@@ -64,6 +68,9 @@ export const ACARA = [
   },
   {
     slug: 'komedi-pojok-pendopo',
+    jenis: 'pertunjukan komedi tunggal',
+    gerbang: { reguler: 'A', depan: 'B' },
+    denah: 'komedi',
     foto: 'Mikrofon di atas tiang dengan cahaya panggung kebiruan di belakangnya',
     judul: 'Komedi Tunggal: Pojok Pendopo',
     baris: ['POJOK', 'PENDOPO'],
@@ -100,6 +107,9 @@ export const ACARA = [
   },
   {
     slug: 'malam-gending-elektrik',
+    jenis: 'konser musik',
+    gerbang: { presale: 'A', reguler: 'A', bibir: 'B' },
+    denah: 'konser',
     foto: 'Siluet penonton mengangkat tangan di depan panggung konser bercahaya jingga',
     judul: 'Malam Gending Elektrik',
     baris: ['GENDING', 'ELEKTRIK'],
@@ -138,6 +148,9 @@ export const ACARA = [
   },
   {
     slug: 'seminar-umkm-naik-kelas',
+    jenis: 'seminar usaha kecil',
+    gerbang: { peserta: 'A', klinik: 'A' },
+    denah: null,
     foto: 'Aula berisi deretan kursi putih yang ditata untuk seminar',
     judul: 'Seminar UMKM: Jualan Daring Tanpa Bakar Uang',
     baris: ['UMKM', 'NAIK KELAS'],
@@ -175,6 +188,9 @@ export const ACARA = [
   },
   {
     slug: 'pasar-rasa-brantas',
+    jenis: 'festival kuliner',
+    gerbang: { masuk: 'A', cicip: 'B' },
+    denah: null,
     foto: 'Sepiring sate sayur dengan irisan tomat dan cabai, dilihat dari atas',
     judul: 'Festival Kuliner Pasar Rasa Brantas',
     baris: ['PASAR', 'RASA'],
@@ -212,6 +228,9 @@ export const ACARA = [
   },
   {
     slug: 'lari-pagi-lereng-5k',
+    jenis: 'lari 5 km',
+    gerbang: { umum: 'A', pelajar: 'A', santai: 'B' },
+    denah: null,
     foto: 'Kaki pelari di jalan aspal dengan langit fajar kemerahan',
     judul: 'Lari Pagi Lereng 5K',
     baris: ['LERENG', '5K'],
@@ -250,6 +269,19 @@ export const ACARA = [
   },
 ];
 
+/** Label hari statis dari ofset data (aman untuk HTML statis). */
+export function labelHari(acara) {
+  const a = acara.mulai[0], b = acara.selesai[0];
+  if (a <= 0 && b >= 0) return 'Hari ini';
+  if (a === 1) return 'Besok';
+  if (a === 2) return 'Lusa';
+  if (a < 0) return 'Sudah lewat';
+  return `Dalam ${a} hari`;
+}
+
+/** Teks pencarian: judul, kota, jenis, tempat, pengisi. */
+export const teksCari = (a) => [a.judul, a.kota, a.jenis, a.tempat, ...a.pengisi.map((p) => `${p.nama} ${p.peran}`)].join(' ').toLowerCase();
+
 export const cariAcara = (slug) => ACARA.find((a) => a.slug === slug) || null;
 export const cariTiketKat = (acara, id) => acara?.tiket.find((t) => t.id === id) || null;
 
@@ -287,6 +319,13 @@ export function statusAcara(acara, sekarang) {
 export function bukaBerikut(acara, sekarang) {
   const w = jendela(acara, sekarang).find(([a]) => a > sekarang);
   return w ? w[0] : null;
+}
+
+/** Waktu acuan pengingat: mulai acara, atau jendela buka berikutnya untuk acara beberapa hari. */
+export function mulaiAcuan(acara, sekarang) {
+  if (acara.harian) return bukaBerikut(acara, sekarang);
+  const { mulai } = jadwal(acara, sekarang);
+  return mulai > sekarang ? mulai : null;
 }
 
 export const hargaMulai = (acara) => {

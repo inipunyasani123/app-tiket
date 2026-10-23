@@ -1,0 +1,20 @@
+/** Judul tab per rute (web), disalin dari <title> HTML statis hasil build. Perbarui bila judul metadata rute berubah. */
+export const JUDUL = {
+  "/": "Karcis Wetan: Demo Aplikasi Tiket Acara | PintuWeb",
+  "/404": "Halaman tidak ditemukan | Karcis Wetan",
+  "/acara/komedi-pojok-pendopo": "Komedi Tunggal: Pojok Pendopo · Surabaya | Karcis Wetan",
+  "/acara/lari-pagi-lereng-5k": "Lari Pagi Lereng 5K · Trenggalek | Karcis Wetan",
+  "/acara/malam-gending-elektrik": "Malam Gending Elektrik · Tulungagung | Karcis Wetan",
+  "/acara/pameran-cetak-saring": "Pameran Cetak Saring & Zine · Malang | Karcis Wetan",
+  "/acara/pasar-rasa-brantas": "Festival Kuliner Pasar Rasa Brantas · Blitar | Karcis Wetan",
+  "/acara/seminar-umkm-naik-kelas": "Seminar UMKM: Jualan Daring Tanpa Bakar Uang | Karcis Wetan",
+  "/e-tiket": "E-tiket | Karcis Wetan",
+  "/panitia": "Mode Panitia: Check-in Tiket di Gerbang | Karcis Wetan",
+  "/pesan/komedi-pojok-pendopo": "Pesan tiket | Karcis Wetan",
+  "/pesan/lari-pagi-lereng-5k": "Pesan tiket | Karcis Wetan",
+  "/pesan/malam-gending-elektrik": "Pesan tiket | Karcis Wetan",
+  "/pesan/pameran-cetak-saring": "Pesan tiket | Karcis Wetan",
+  "/pesan/pasar-rasa-brantas": "Pesan tiket | Karcis Wetan",
+  "/pesan/seminar-umkm-naik-kelas": "Pesan tiket | Karcis Wetan",
+  "/tiket": "Tiketku: E-tiket & Dompet | Karcis Wetan",
+};
